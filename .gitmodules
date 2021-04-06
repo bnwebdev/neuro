@@ -1,0 +1,3 @@
+[submodule "lib/matrix"]
+	path = lib/matrix
+	url = git://github.com/bnwebdev/matrix
