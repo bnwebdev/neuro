@@ -111,7 +111,7 @@ router.post('/neuro/learn', async (req, res)=>{
         res.send(e)
     }
 })
-router.post('neuro/config', async (req, res)=>{
+router.post('/neuro/config', async (req, res)=>{
     const config = parseConfigFromRequest(req)
     const brain = createBrainFromConfig(config)
     try {
@@ -122,5 +122,7 @@ router.post('neuro/config', async (req, res)=>{
     }
 
 })
+
+return router
 
 }
