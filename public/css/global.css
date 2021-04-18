@@ -1,0 +1,28 @@
+html, 
+body {
+    padding: 0;
+    margin: 0;
+}
+
+body {
+    min-height: 100vh;
+
+    display: grid;
+    grid-template:
+    ". navbar ." min-content
+    ". content ." auto
+    ". footer ." min-content
+    / minmax(10px, auto) minmax(auto, 900px) minmax(10px, auto);
+}
+
+#header__site {
+    grid-area: navbar;
+}
+
+#main__site {
+    grid-area: content;
+}
+
+#footer__site {
+    grid-area: footer;
+}

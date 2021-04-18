@@ -1,15 +1,29 @@
 const {Router} = require('express')
+const path = require('path')
+const Brain = require(path.join(module.parent.path, 'neuro'))
+const Matrix = require(path.join(module.parent.path, 'lib/matrix/matrix'))
 
 module.exports = function createRouter({
     examplesdb,
     neurodb,
-    parseExampleFromRequest,
-    parseInputFromRequest,
-    parseQueryOutputToResponse,
-    parseExamplesToResponse,
-    parseNeuroToResponse,
-    parseConfigFromRequest,
-    createBrainFromConfig
+    parseExampleFromRequest = req=>{
+        return [
+            Matrix.from([JSON.parse(req.input)]).transpose(),
+            Matrix.from([JSON.parse(req.output)]).transpose()
+        ]
+    },
+    parseInputFromRequest = req=>{
+        return Matrix.from([JSON.parse(req.input)]).transpose()
+    },
+    parseQueryOutputToResponse = out=>out.toString(),
+    parseExamplesToResponse = JSON.stringify,
+    parseNeuroToResponse = JSON.stringify,
+    parseConfigFromRequest = req=>{
+        return {alpha: +req.body.alpha, layouts: JSON.parse(req.body.layouts)}
+    },
+    createBrainFromConfig = config=>{
+        return new Brain(config.alpha, ...config.layouts)
+    }
 }){
 
 const router = Router()
@@ -111,8 +125,11 @@ router.post('/neuro/learn', async (req, res)=>{
         res.send(e)
     }
 })
+router.get('/neuro/config', (req, res)=>{
+    res.render('config')
+})
 router.post('/neuro/config', async (req, res)=>{
-    const config = parseConfigFromRequest(req)
+    const config =  parseConfigFromRequest(req)
     const brain = createBrainFromConfig(config)
     try {
         neurodb.save('current', brain)
