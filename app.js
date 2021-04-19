@@ -6,13 +6,18 @@ const Matrix = require('./lib/matrix/matrix')
 const Brain = require('./neuro')
 const Db = require('./models/db')
 const getNeuralRouter = require('./src/routes/neuro-router')
+const matrixFrom = matrix=>{
+    const i = matrix.length
+    const j = matrix[0].length || 0
+    return new Matrix(i, j).modify((_, i, j)=>matrix[i][j])
+}
 const neurodb = new Db({
     basepath: './data/neuro', 
     handlerToSave: JSON.stringify, 
     handlerToLoad: data=>{
         const br = JSON.parse(data)
         const brain = new Brain(br.alpha, 1, 1)
-        brain.layouts = br.layouts
+        brain.layers = br.layers.map(matrixFrom)
         return brain
     }
 })
@@ -20,7 +25,7 @@ const examplesdb = new Db({
     basepath : '/data/examples', 
     handlerToSave: JSON.stringify, 
     handlerToLoad: data=>data? JSON.parse(data).map(([inp, out])=>{
-        return [Matrix.from(inp), Matrix.from(out)]
+        return [matrixFrom(inp), matrixFrom(out)]
     }): []
 })
 const neuralRouter = getNeuralRouter({ neurodb, examplesdb })
