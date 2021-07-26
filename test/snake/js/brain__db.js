@@ -43,7 +43,11 @@ const brainDB = (function(){
         const item = await getDBBrainItem(id)
         if(!item) throw new Error(`Item undefined`)
         item.info = info
+        item.brain = await load(id)
         await save(item)
     }
-    return { load, save, getDBBrainItem, softClear, hardClear, getBestIds, writeInfo, saveAsBest }
+    async function getBestsArray(){
+        return await db.brains.where('id').anyOf(await getBestIds()).toArray()
+    }
+    return { getBestsArray, load, save, getDBBrainItem, softClear, hardClear, getBestIds, writeInfo, saveAsBest }
 })()

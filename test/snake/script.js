@@ -241,12 +241,6 @@ renderer.register(gobjs.SnakeCell, function(obj){
     }
     ctx.fillRect(x, y, width, height)
 })
-renderer.register(bengine.Scene, function(scene){
-    const {x, y} = scene.rect.point
-    const {width, height} = scene.rect
-    ctx.fillStyle = 'white'
-    ctx.fillRect(x, y, width, height)
-})
 renderer.register(gobjs.Snake, function(snake){
     if(snake.isDestroyed) return;
     renderer.draw(snake.head, ...snake.body)
@@ -323,7 +317,7 @@ const gameObjectFactory = {
 
 function createScene(){
     return new bengine.Scene(
-        new Squer({point: new Point({x: 0, y: 0}), width: $canvas.width, height: $canvas.height})
+        new bengine.Squer({point: new bengine.Point({x: 0, y: 0}), width: $canvas.width, height: $canvas.height})
     )
 }
 function prepareMapToMatrix(map){
@@ -358,11 +352,148 @@ function replaceCharToRow(row, idx, char){
 
 const gameProcess = bengine.createGameProcess(renderer, collisioner, collideReactor)
 
+gobjs.Snake.prototype.think = async function(brainId, apples, walls){
+    const snake = this
+    const brain = await brainDB.load(brainId)
+    snake.allCells.concat(apples, walls).map(cell=>{
+        cell.point.x -= 3
+        cell.point.y -= 3
+        cell.width += 6
+        cell.height += 6
+    })
+    const response = brain.query(getInput(snake, apples, walls)).transpose()[0]
+    const max = Math.max(...response)
+
+    const direction = snake.direction
+    const compareDirection = {
+        left: [3, 0, 1],
+        up: [0, 1, 2],
+        right: [1, 2, 3],
+        down: [2, 3, 0]
+    }
+    const nameDirection = ['left', 'up', 'right', 'down'][direction]
+    const responseIdx = response.indexOf(max)
+    snake.setDirection(compareDirection[nameDirection][responseIdx])
+    
+    snake.allCells.concat(apples, walls).map(cell=>{
+        cell.point.x += 3
+        cell.point.y += 3
+        cell.width -= 6
+        cell.height -= 6
+    })
+}
+
+const nulpasync = async ()=>{}
+const gameEvolution = {
+    state: 'stop',
+    async start(){
+        console.log('start evolv')
+    },
+    async stop(){
+        console.log('stop evolv')
+    }
+}
+
+const gameBest = {
+    state: 'stop',
+    async start(){
+        console.log('start best')
+        const bests = await brainDB.getBestsArray()
+        if(bests.length === 0){
+            throw new Error(`Bests brains is empty!`)
+        }
+        const best = bests.reduce((tot, curr)=>{
+            const json = curr.info
+            if(!json) return tot
+            const {countSteps = 0} = JSON.parse(json)
+            if(tot.countSteps < countSteps){
+                tot.countSteps = countSteps
+                tot.id = curr.id
+            }  
+            return tot
+        }, {countSteps: 0, id: null})
+        if(best.id === null){
+            throw new Error('Invalid code')
+        }
+        this.abort = utils.setAsyncInterval(this.getNewGame(best.id), 1000 / 1)
+    },
+    async stop(){
+        console.log('stop best')
+        await this.abort()
+        this.abort = nulpasync
+    },
+    abort: nulpasync,
+    getNewGame(brainId){
+        const scene = createScene()
+        const snake = gameObjectFactory.create('s', 5, 5, scene)
+        scene.push(...new Array(COUNT_APPLES).fill(0).map((_)=>{
+                return gameObjectFactory.create(
+                    'a', 
+                    utils.randUint(COUNT_CELL - 3) + 1, 
+                    utils.randUint(COUNT_CELL - 3) + 1, 
+                    scene
+                )
+            })
+        )
+        const walls = []
+        
+        for(let i = 0; i < COUNT_CELL; i++){
+            const x = i
+            const y = i
+            walls.push(
+                gameObjectFactory.create('w', x, 0, scene),
+                gameObjectFactory.create('w', x, COUNT_CELL - 1, scene),
+                gameObjectFactory.create('w', 0, y, scene),
+                gameObjectFactory.create('w', COUNT_CELL - 1, y, scene)
+            )
+        }
+        
+        scene.push(snake, ...walls)
+
+        return async function(){
+            if(snake.isDestroyed) return;
+            scene.gameObjects = scene.gameObjects.filter(o=>!o.isDestroyed)
+            const apples = scene.gameObjects.filter(o=>o.type === 'apple')
+            await snake.think(brainId, apples, walls)
+            drawPlace( ctx )
+            await gameProcess(scene)
+        }
+    }
+}
+const controler = {
+    state: 'stop',
+    async start(name){
+        if(this.state !== 'stop') await this.stop()
+        const currentGame = this.getGame(name)
+        this.state = name
+        await currentGame.start()
+    },
+    getGame(name){
+        switch(name){
+            case 'evolution': return gameEvolution
+            case 'best': return gameBest
+            default: throw new Error(`Undefined game name (${name})`)
+        }
+    },
+    async stop(){
+        if(this.state === 'stop') return;
+        const currentGame = this.getGame(this.state)
+        await currentGame.stop()
+        this.state = 'stop'
+    }
+}
+
+function startEvolution(){
+    controler.start('evolution')
+}
+function startBest(){
+    controler.start('best')
+}
+function stopGame(){
+    controler.stop()
+}
+
 $("#btn-start-evolve").addEventListener('click', startEvolution)
 $("#btn-start-best").addEventListener('click', startBest)
 $("#btn-stop-game").addEventListener('click', stopGame)
 
-function beforeStartGame(){}
-function startEvolution(){}
-function startBest(){}
-function stopGame(){}

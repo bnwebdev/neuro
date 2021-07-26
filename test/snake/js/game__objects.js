@@ -1,5 +1,6 @@
 const gobjs = (function(){
     const Squer = bengine.Squer
+    const Point = bengine.Point
     
     class TargetSquer extends Squer{
         constructor(target, ...options){
