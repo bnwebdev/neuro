@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolve Snake</title>
+    <link rel="stylesheet" href="style.css">
+    
+    <!-- Include Dexie -->
+    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+    <!-- Include Bengine -->
+    <script src="lib/bengine/bengine.js"></script>
+    <!-- Create Game Objects -->
+    <script src="js/game__objects.js"></script>
+    <!-- Include Matrix -->
+    <script src="lib/matrix/matrix.js"></script>
+    <!-- Include Neuro -->
+    <script src="../../neuro.js"></script>
+    <!-- Create utils for incapsulation -->
+    <script src="js/utils.js"></script>
+    
+</head>
+<body class="waiting">
+    <div id="wait__ring">
+        <div class="wait__box">
+            <div class="wait__block"></div>
+            <div class="wait__block"></div>
+            <div class="wait__block"></div>
+            <div class="wait__block"></div>
+        </div>
+    </div>
+    <canvas id="canvas"></canvas>
+    <div id="output">
+        <div id="generation">Поколение: <span class="value">1</span></div>
+        <div id="death_time">Шагов до смерти: <span class="value">0</span></div>
+        <!-- <div id="chart"></div> -->
+    </div>
+
+    <input type="button" id="btn-start-evolve" value="Start Evolution">
+    <input type="button" id="btn-start-best" value="Start Best Snake">
+    <input type="button" id="btn-stop-game" value="Stop Snake">
+    
+
+    <!-- ADD SCRIPTS -->
+        <script src="script.js"></script>
+    <!-- END ADD SCRIPTS -->
+    
+</body>
+</html>

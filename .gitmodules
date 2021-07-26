@@ -1,3 +1,9 @@
 [submodule "lib/matrix"]
 	path = lib/matrix
 	url = git://github.com/bnwebdev/matrix
+[submodule "test/snake/lib/bengine"]
+	path = test/snake/lib/bengine
+	url = https://github.com/bnwebdev/bengine
+[submodule "test/snake/lib/matrix"]
+	path = test/snake/lib/matrix
+	url = https://github.com/bnwebdev/matrix

@@ -1,0 +1,91 @@
+body {
+    display: absolute;
+    min-height: 100vh;
+}
+.waiting > * {
+    display: none;
+}
+.waiting > #wait__ring {
+    display: flex;
+}
+#wait__ring {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    justify-content: center;
+    align-items: center;
+}
+.wait__box {
+    width: 85px;
+    height: 85px;
+    display: grid;
+    grid-template: 
+        ". . . ." minmax(0px, auto)
+        ". b1 b2 ." 30px
+        ". b3 b4 ." 30px
+        ". . . ." minmax(0px, auto)
+        / minmax(0px, auto) 30px 30px minmax(0px, auto);
+    gap: 5px;
+    border-radius: 50%;
+}
+.wait__block:nth-of-type(1) {
+    grid-area: b1;
+}
+.wait__block:nth-of-type(4) {
+    grid-area: b4;
+}
+.wait__block:nth-of-type(2){
+    grid-area: b2;
+}
+.wait__block:nth-of-type(3){
+    grid-area: b3;
+}
+
+.waiting > #wait__ring > .wait__box {
+    animation: my_routation 2s linear 0s infinite, 
+            blink 2s linear 0s infinite alternate;
+}
+.wait__block:nth-of-type(2),
+.wait__block:nth-of-type(3) {
+    animation: my_reverse_routation 2s linear 0s infinite, 
+                green-blue-blink 1s linear 0s infinite alternate;
+}
+.wait__block:nth-of-type(1),
+.wait__block:nth-of-type(4) {
+    animation: my_reverse_routation 2s linear 0s infinite, 
+                green-blue-blink 1s linear 0s infinite alternate-reverse;
+}
+@keyframes my_routation {
+    from {
+        transform: rotate(0deg);
+    } to {
+        transform: rotate(360deg);
+    }
+}
+@keyframes blink {
+    from {
+        background: rgb(21, 77, 180);
+    } to {
+        background: rgb(165, 3, 84);
+    }
+}
+@keyframes green-blue-blink {
+    from {
+        border: 2px solid greenyellow;
+        background: rgba(115, 255, 50, .31);
+    } to {
+        border: 2px solid #aff;
+        background: rgba(200, 250, 250, 0.2);
+    }
+}
+
+@keyframes my_reverse_routation {
+    from {
+        transform: rotate(0deg);
+    } to {
+        transform: rotate(-360deg);
+    }
+}
