@@ -1,5 +1,3 @@
-if(require) const Matrix = require('./lib/matrix/matrix')
-
 const Brain = (function(){
 
 function initLayersByArray(layers, fillFunction){
@@ -76,5 +74,3 @@ function update(k, input, weight, output, errors){
 return Brain
 
 })()
-
-if(module) module.exports = Brain
