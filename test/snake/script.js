@@ -83,12 +83,6 @@ function getMaxEatedStep(bodyLength){
     return MAX_EATED_STEP + bodyLength * 2
 }
 
-const db = new Dexie('brain-db')
-db.version(1).stores({
-    brains: '++id, brain, generation',
-    bests: 'id, generation, info'
-})
-
 function createBrainForSnake(baseBrain){
     // OUTPUT === 3, becouse inputs always are prepared to a head direction,
     // so a snake can turn to the left, to the right or stay in the direction
@@ -339,7 +333,7 @@ function prepareMapToMatrix(map){
     return map
 }
 function addTemplateToScene(scene, map, gameObjectFactory, emptyChar = '.'){
-    prepareMapToMatrix(map).each((v, x, y)=>{
+    prepareMapToMatrix(map).each((v, y, x)=>{
         if(v === emptyChar) return;
         scene.push(gameObjectFactory.create(v, x, y, scene))
     })
@@ -362,12 +356,13 @@ function replaceCharToRow(row, idx, char){
     return row.slice(0, idx) + char + row.slice(idx + 1)
 }
 
-
-
 const gameProcess = bengine.createGameProcess(renderer, collisioner, collideReactor)
 
-const game = async (scene) => {
-    await gameProcess(scene)
-}
+$("#btn-start-evolve").addEventListener('click', startEvolution)
+$("#btn-start-best").addEventListener('click', startBest)
+$("#btn-stop-game").addEventListener('click', stopGame)
 
-closeWaitingRing()
+function beforeStartGame(){}
+function startEvolution(){}
+function startBest(){}
+function stopGame(){}
