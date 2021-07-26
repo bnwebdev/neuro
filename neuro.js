@@ -1,13 +1,18 @@
-const Matrix = require('./lib/matrix/matrix')
+if(require) const Matrix = require('./lib/matrix/matrix')
 
-function rand(min, max){
-  return min + Math.random()*(max - min)
-}
-function initLayersByArray(layers){
+const Brain = (function(){
+
+function initLayersByArray(layers, fillFunction){
+  function rand(min, max){
+    return min + Math.random()*(max - min)
+  }
+  if(!fillFunction){
+    fillFunction = ()=>rand(-0.5, 0.5)
+  }
   let prev, result = []
   for(let i = 0; i < layers.length; i++){
     if(i !== 0){
-      result.push(new Matrix(layers[i], prev).modify(()=>rand(-0.5, 0.5)))
+      result.push(new Matrix(layers[i], prev).modify(fillFunction))
     }
     prev = layers[i]
   }
@@ -26,6 +31,7 @@ class Brain {
     const outputs = []
     let errors = []
     let f = true
+    const activate = this.activate
     for(let w of this.layers){
       if(f){
         inputs.push(input)
@@ -59,14 +65,16 @@ class Brain {
   }
 }
 
-function fillOnes(){return 1}
-
 function update(k, input, weight, output, errors){
   const tinp = input.transpose()
   const dw = output.copy().modify(function(out, i, j){
     return errors[i][j] * out * (1 - out)
-  }).mult(tinp).modifyMult(k)
+  }).modifyMult(k).mult(tinp)
   weight.modifyAdd(dw)
 }
 
-module.exports = Brain
+return Brain
+
+})()
+
+if(module) module.exports = Brain
