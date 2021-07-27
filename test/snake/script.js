@@ -23,50 +23,10 @@ const ctx = $canvas.getContext('2d')
 const MODIFY_CHANCE = 4 // persent
 const MIN_CHANGE = 0.001
 const MAX_CHANGE = 0.1
-const SIZE_INPUT = 7
+const SIZE_INPUT = 9
 const INPUT_HEIGHT = SIZE_INPUT * SIZE_INPUT * 2 // an area around and 4 directions  
 
-const maxStepsSnakeByGeneration = []
-
-// CHART 
-/*
-function drawChart(){
-    $('#chart').innerHTML = '<div>Y - max-steps, X - generation</div>'
-    const max_x = Math.max(2, maxStepsSnakeByGeneration.length)
-    const max_y = Math.max(2, ...maxStepsSnakeByGeneration.map(p=>p.y))
-    const chart = new Chart('#chart', {
-        width: 400, 
-        height: 200, 
-        limits: {
-            x: {
-                min: 0,
-                max: max_x + 10
-            }, 
-            y: {
-                min: 0,
-                max: max_y + 10
-            }
-        },
-        axis: {
-            color: 'red',
-            x: 0,
-            y: 0,
-            lineWidth: 1,
-            step: {
-                x: {
-                    main: Math.max(Math.round(max_x / 10), 1)
-                },
-                y: {
-                    main: Math.max(Math.round(max_y / 10), 1)
-                }
-            }
-        }
-    })
-    const place = chart.createPointPlace('gen-steps', {type:'text'})
-    maxStepsSnakeByGeneration.forEach(place.add.bind(place))
-}
-*/
-// END CHART
+const FPS = 1000 / 10
 
 function isTrueInRandom(chance){
     return utils.rand(0, 100) > (100 - chance)
@@ -96,11 +56,11 @@ function createBrainForSnake(baseBrain){
 }
 
 async function createGenerationBrains({count = 100, firstBaseBrain, secondBaseBrain, generation = 0} = {}){
-    let baseBrain
-    if(firstBaseBrain && secondBaseBrain) {
-        baseBrain = reproductionSnakesBrain(firstBaseBrain, secondBaseBrain)
-    }
     return await Promise.all(new Array(count).fill(0).map(async ()=>{
+        let baseBrain
+        if(firstBaseBrain && secondBaseBrain) {
+            baseBrain = reproductionSnakesBrain(firstBaseBrain, secondBaseBrain)
+        }
         const brain = createBrainForSnake(baseBrain)
         const id = await brainDB.save({brain, generation})
         return id
@@ -109,7 +69,7 @@ async function createGenerationBrains({count = 100, firstBaseBrain, secondBaseBr
 }
 
 function reproductionSnakesBrain(brain1, brain2){
-    const brain = new Brain(brainDb1.brain.alpha, 0)
+    const brain = new Brain(brain1.alpha, 0)
     brain.layers = brain1.layers.map((matrix, it)=>{
         return matrix.copy().modify((value, i, j)=>isTrueInRandom(50)? value: brain2.layers[it][i][j])
     })
@@ -294,15 +254,6 @@ collideReactor.register(gobjs.SnakeHead, gobjs.Wall, function(obj1, obj2){
   head.destroy()
 })
 
-function getCreateAndPushApple(scene){
-    return function createAndPushApple(){
-        const x = utils.randUint(COUNT_CELL - 3) * STEP_X + STEP_X
-        const y = utils.randUint(COUNT_CELL - 3) * STEP_Y  + STEP_Y
-        scene.push(
-            new gobjs.Apple({x, y, width: STEP_X, height: STEP_Y}, createAndPushApple)
-        )
-    }
-}
 const gameObjectFactory = {
     create(id, x, y, scene){
         return this[id](x, y, scene)
@@ -327,6 +278,15 @@ const gameObjectFactory = {
         x: x * STEP_X + 3, 
         y: y * STEP_Y + 3
     }, getCreateAndPushApple(scene))
+}
+function getCreateAndPushApple(scene){
+    const randCord = ()=>utils.randUint(COUNT_CELL - 3) + 1
+    return function createAndPushApple(){
+        const x = randCord()
+        const y = randCord()
+        scene.gameObjects = scene.gameObjects.filter(o=>!(o.type === 'apple' && o.isDestroyed))
+        scene.push(gameObjectFactory.create('a', x, y, scene))
+    }
 }
 
 function createScene(){
@@ -364,7 +324,21 @@ function replaceCharToRow(row, idx, char){
     return row.slice(0, idx) + char + row.slice(idx + 1)
 }
 
-const gameProcess = bengine.createGameProcess(renderer, collisioner, collideReactor)
+function createMultiplyGameProcess(renderer, collisioner, collideReactor, clearPlace = async function(){}){
+    let timestamp = Date.now() - 1
+    return async function multiplyGameProcess(...scenes){
+        const dt = Date.now() - timestamp
+        timestamp = Date.now()
+        await Promise.all(scenes.map(scene=>scene.update(dt)))
+        await Promise.all(scenes.map(async scene=>{
+            const collisions = await collisioner.checkCollision(scene)
+            await collideReactor.react(...collisions)
+        }))
+        await clearPlace()
+        await Promise.all(scenes.map(scene=>renderer.render(scene)))
+    }
+}
+const gameProcess = createMultiplyGameProcess(renderer, collisioner, collideReactor, async ()=>drawPlace(ctx))
 
 gobjs.Snake.prototype.think = async function(brainId, apples, walls){
     const snake = this
@@ -396,24 +370,79 @@ gobjs.Snake.prototype.think = async function(brainId, apples, walls){
         cell.height -= 6
     })
 }
-
 const nulpasync = async ()=>{}
 const gameEvolution = {
     state: 'stop',
+    countSnakesInGeneration: 100,
     async start(){
         console.log('start evolv')
-        this.generetion = 1
+        await brainDB.softClear()
+        this.refreshValues()
+        
+        const generationIds = await this.createGeneration()
+        await this.createGameWithGenerations(generationIds)
+    },
+    async createGameWithGenerations(generationIds){
+        let liveCountSnakes = this.countSnakesInGeneration
+        let countSnakes = liveCountSnakes
+        let sum = 0
+        const updateLiveCount = async (brainId, snake)=>{
+            sum += snake.countSteps
+            --liveCountSnakes
+            if(liveCountSnakes === 1){
+                this.firstBestId = brainId
+                await brainDB.writeInfo(brainId, JSON.stringify({countSteps: snake.countSteps}))
+                await brainDB.saveAsBest(brainId)
+            } else if(liveCountSnakes === 0){
+                this.secondBestId = brainId
+                await brainDB.writeInfo(brainId, JSON.stringify({countSteps: snake.countSteps}))
+                await brainDB.saveAsBest(brainId)
+                await this.stop()
+                this.generation++
+                this.writeGeneration()
+                this.writeAverage(Math.round(sum / countSnakes))
+                this.writeMaxSteps(snake.countSteps)
+                const generationIds = await this.createGeneration()
+                await this.createGameWithGenerations(generationIds)
+            }
+        }
+        const games = generationIds.map( brainId=>({ scene: this.getNewScene(brainId, updateLiveCount), brainId }) )
+        let abortObj = {fn: ()=>{}}
+        this.abort = utils.setAsyncInterval(async ()=>{
+            if(this.abort !== abortObj.fn){ return abortObj.fn()}
+            let scenes = games.map(({scene})=>scene)
+            scenes = scenes.filter(scene=>{
+                const snake = scene.gameObjects.find(obj=>obj.type === 'snake')
+                return !snake.isDestroyed
+            })
+            await gameProcess(...scenes)
+        }, FPS)
+        abortObj.fn = this.abort
+    },
+    refreshValues(){
+        this.generation = 1
         this.firstBestId = null
         this.secondBestId = null
-        const generationIds = await createGenerationBrains()
-        this.abort = utils.setAsyncInterval(async ()=>{
-            let isFirstCall = true
-            await Promise.all(generationIds.map(this.getNewGame.bind(this)).map(gameFn=>async ()=>{
-                    await gameFn(()=>isFirstCall)
-                    isFirstCall = false
-                }).map(fn=>fn())
-            )
-        }, 1000 / 1)
+        this.writeGeneration()
+    },
+    writeGeneration(){
+        $('#generation > .value').innerText = this.generation
+    },
+    writeAverage(average){
+        $('#average_death_time > .value').innerText = average
+    },
+    writeMaxSteps(countSteps){
+        $('#max_death_time > .value').innerText = countSteps
+    },
+    async createGeneration(){
+        let firstBaseBrain, secondBaseBrain
+        const generation = this.generation
+        const count = this.countSnakesInGeneration
+        if(this.firstBestId !== null && this.secondBestId !== null){
+            firstBaseBrain = await brainDB.load(this.firstBestId)
+            secondBaseBrain = await brainDB.load(this.secondBestId)
+        }
+        return await createGenerationBrains({generation, firstBaseBrain, secondBaseBrain, count})
     },
     async stop(){
         console.log('stop evolv')
@@ -421,16 +450,17 @@ const gameEvolution = {
         this.abort = nulpasync
         await brainDB.softClear()
     },
-    getNewGame(brainId){
+    getNewScene(brainId, deathSnakeHandler){
         const scene = createScene()
         this.fillScene(scene)
         const snake = scene.gameObjects.find(o=>o.type === 'snake')
-        return async function(getIsFirstCall){
-            if(snake.isDestroyed) return;
-            await thinkPartOfGame(scene, snake, brainId)
-            if(getIsFirstCall()) drawPlace( ctx )
-            await gameProcess(scene)
+        snake.onDestroyed = ()=>deathSnakeHandler(brainId, snake)
+        snake.onBeforeUpdate = async ()=>{
+            const apples = scene.gameObjects.filter(o=>o.type === 'apple').filter(o=>!o.isDestroyed)
+            const walls = scene.gameObjects.filter(o=>o.type === 'wall')
+            await snake.think(brainId, apples, walls)
         }
+        return scene
     },
     fillScene(scene){
         const randCord = ()=>utils.randUint(COUNT_CELL - 3) + 1
@@ -477,7 +507,7 @@ const gameBest = {
         if(best.id === null){
             throw new Error('Invalid code')
         }
-        this.abort = utils.setAsyncInterval(this.getNewGame(best.id), 1000 / 1)
+        this.abort = utils.setAsyncInterval(this.getNewGame(best.id), FPS)
     },
     async stop(){
         console.log('stop best')
@@ -519,8 +549,10 @@ const controler = {
         if(this.state !== 'stop') await this.stop()
         const currentGame = this.getGame(name)
         try {
+            openWaitingRing()
             this.state = name
             await currentGame.start()
+            closeWaitingRing()
         } catch (e){
             alert(e)
             await this.stop()
@@ -551,8 +583,15 @@ function startBest(){
 function stopGame(){
     controler.stop()
 }
+async function clearDB(){
+    openWaitingRing()
+    await controler.stop()
+    await brainDB.hardClear()
+    closeWaitingRing()
+}
 
 $("#btn-start-evolve").addEventListener('click', startEvolution)
 $("#btn-start-best").addEventListener('click', startBest)
 $("#btn-stop-game").addEventListener('click', stopGame)
+$("#clear-db").addEventListener('click', clearDB)
 

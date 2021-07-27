@@ -81,6 +81,9 @@ const gobjs = (function(){
             this.newCell = null
             this.onDestroyed = onDestroyed || function(){}
             this.counterStepsWithoutMeal = 0
+            this.countSteps = 0
+            this.onBeforeUpdate = async ()=>{}
+
         }
         get direction(){
             return this.head.direction
@@ -96,6 +99,7 @@ const gobjs = (function(){
             return [this.head.getCircuit(), ...this.body.map(obj=>obj.getCircuit())]
         }
         async update(dt){
+            if(this.isDestroyed) return;
             if(this.counterStepsWithoutMeal >= getMaxEatedStep(this.allCells.length)){
                 if(this.lastCell.hasMeal){
                     this.lastCell.hasMeal = false
@@ -106,8 +110,9 @@ const gobjs = (function(){
                     this.destroy()
                 }
             }
-
             if(this.isDestroyed) return;
+            await this.onBeforeUpdate()
+            this.countSteps++
             this.checkMeal()
             await this.head.update(dt)
             await Promise.all(this.body.map(cell=>cell.update(dt)));
