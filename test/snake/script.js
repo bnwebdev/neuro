@@ -94,6 +94,20 @@ function createBrainForSnake(baseBrain){
     })
     return brain
 }
+
+async function createGenerationBrains({count = 100, firstBaseBrain, secondBaseBrain, generation = 0} = {}){
+    let baseBrain
+    if(firstBaseBrain && secondBaseBrain) {
+        baseBrain = reproductionSnakesBrain(firstBaseBrain, secondBaseBrain)
+    }
+    return await Promise.all(new Array(count).fill(0).map(async ()=>{
+        const brain = createBrainForSnake(baseBrain)
+        const id = await brainDB.save({brain, generation})
+        return id
+    }))
+    
+}
+
 function reproductionSnakesBrain(brain1, brain2){
     const brain = new Brain(brainDb1.brain.alpha, 0)
     brain.layers = brain1.layers.map((matrix, it)=>{
@@ -388,12 +402,60 @@ const gameEvolution = {
     state: 'stop',
     async start(){
         console.log('start evolv')
+        this.generetion = 1
+        this.firstBestId = null
+        this.secondBestId = null
+        const generationIds = await createGenerationBrains()
+        this.abort = utils.setAsyncInterval(async ()=>{
+            let isFirstCall = true
+            await Promise.all(generationIds.map(this.getNewGame.bind(this)).map(gameFn=>async ()=>{
+                    await gameFn(()=>isFirstCall)
+                    isFirstCall = false
+                }).map(fn=>fn())
+            )
+        }, 1000 / 1)
     },
     async stop(){
         console.log('stop evolv')
-    }
+        await this.abort()
+        this.abort = nulpasync
+        await brainDB.softClear()
+    },
+    getNewGame(brainId){
+        const scene = createScene()
+        this.fillScene(scene)
+        const snake = scene.gameObjects.find(o=>o.type === 'snake')
+        return async function(getIsFirstCall){
+            if(snake.isDestroyed) return;
+            await thinkPartOfGame(scene, snake, brainId)
+            if(getIsFirstCall()) drawPlace( ctx )
+            await gameProcess(scene)
+        }
+    },
+    fillScene(scene){
+        const randCord = ()=>utils.randUint(COUNT_CELL - 3) + 1
+        scene.push(gameObjectFactory.create('s', randCord(), randCord(), scene))
+        scene.push(
+            ...new Array(COUNT_APPLES).fill(0)
+            .map((_)=>gameObjectFactory.create('a', randCord(), randCord(), scene))
+        )
+        for(let i = 0; i < COUNT_CELL; i++){
+            scene.push(
+                gameObjectFactory.create('w', i, 0, scene),
+                gameObjectFactory.create('w', i, COUNT_CELL - 1, scene),
+                gameObjectFactory.create('w', 0, i, scene),
+                gameObjectFactory.create('w', COUNT_CELL - 1, i, scene)
+            )
+        }
+    },
+    abort: nulpasync
 }
-
+async function thinkPartOfGame(scene, snake, brainId){
+    scene.gameObjects = scene.gameObjects.filter(o=>!o.isDestroyed)
+    const apples = scene.gameObjects.filter(o=>o.type === 'apple')
+    const walls = scene.gameObjects.filter(o=>o.type === 'wall')
+    await snake.think(brainId, apples, walls)
+}
 const gameBest = {
     state: 'stop',
     async start(){
@@ -411,7 +473,7 @@ const gameBest = {
                 tot.id = curr.id
             }  
             return tot
-        }, {countSteps: 0, id: null})
+        }, {countSteps: -1, id: null})
         if(best.id === null){
             throw new Error('Invalid code')
         }
@@ -425,38 +487,29 @@ const gameBest = {
     abort: nulpasync,
     getNewGame(brainId){
         const scene = createScene()
-        const snake = gameObjectFactory.create('s', 5, 5, scene)
-        scene.push(...new Array(COUNT_APPLES).fill(0).map((_)=>{
-                return gameObjectFactory.create(
-                    'a', 
-                    utils.randUint(COUNT_CELL - 3) + 1, 
-                    utils.randUint(COUNT_CELL - 3) + 1, 
-                    scene
-                )
-            })
-        )
-        const walls = []
-        
-        for(let i = 0; i < COUNT_CELL; i++){
-            const x = i
-            const y = i
-            walls.push(
-                gameObjectFactory.create('w', x, 0, scene),
-                gameObjectFactory.create('w', x, COUNT_CELL - 1, scene),
-                gameObjectFactory.create('w', 0, y, scene),
-                gameObjectFactory.create('w', COUNT_CELL - 1, y, scene)
-            )
-        }
-        
-        scene.push(snake, ...walls)
-
+        this.fillScene(scene)
+        const snake = scene.gameObjects.find(o=>o.type === 'snake')
         return async function(){
             if(snake.isDestroyed) return;
-            scene.gameObjects = scene.gameObjects.filter(o=>!o.isDestroyed)
-            const apples = scene.gameObjects.filter(o=>o.type === 'apple')
-            await snake.think(brainId, apples, walls)
+            await thinkPartOfGame(scene, snake, brainId)
             drawPlace( ctx )
             await gameProcess(scene)
+        }
+    },
+    fillScene(scene){
+        const randAppleCord = ()=>utils.randUint(COUNT_CELL - 3) + 1
+        scene.push(gameObjectFactory.create('s', 5, 5, scene))
+        scene.push(
+            ...new Array(COUNT_APPLES).fill(0)
+            .map((_)=>gameObjectFactory.create('a', randAppleCord(), randAppleCord(), scene))
+        )
+        for(let i = 0; i < COUNT_CELL; i++){
+            scene.push(
+                gameObjectFactory.create('w', i, 0, scene),
+                gameObjectFactory.create('w', i, COUNT_CELL - 1, scene),
+                gameObjectFactory.create('w', 0, i, scene),
+                gameObjectFactory.create('w', COUNT_CELL - 1, i, scene)
+            )
         }
     }
 }
@@ -465,8 +518,14 @@ const controler = {
     async start(name){
         if(this.state !== 'stop') await this.stop()
         const currentGame = this.getGame(name)
-        this.state = name
-        await currentGame.start()
+        try {
+            this.state = name
+            await currentGame.start()
+        } catch (e){
+            alert(e)
+            await this.stop()
+        } 
+        
     },
     getGame(name){
         switch(name){

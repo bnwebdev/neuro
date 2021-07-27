@@ -14,8 +14,8 @@ const brainDB = (function(){
         result.layers = brain.layers.map(Matrix.from)
         return result
     }
-    async function save({brain, generation = null, id, info = ''} = {}){
-        await db.brains.put({id, brain: JSON.stringify(brain), generation, info})
+    function save({brain, generation = null, id, info = ''} = {}){
+        return db.brains.put({id, brain: JSON.stringify(brain), generation, info})
     }
     async function getDBBrainItem(id){
         return await db.brains.where({id}).first()
