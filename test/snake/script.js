@@ -552,11 +552,12 @@ const controler = {
             openWaitingRing()
             this.state = name
             await currentGame.start()
-            closeWaitingRing()
         } catch (e){
             alert(e)
             await this.stop()
-        } 
+        } finally {
+            closeWaitingRing()
+        }
         
     },
     getGame(name){
