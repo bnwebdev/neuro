@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handwritting</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Include Dexie -->
+    <script src="https://unpkg.com/dexie@latest/dist/dexie.js"></script>
+
+    <!-- Create db wrapper -->
+    <script src="js/models/db.js"></script>
+
+    <script src="script.js" defer></script>
+</head>
+<body>
+    <header id="header__site">
+        <nav id="nav">
+            <input type="radio" name="mode" id="create__examples__mode">
+            <input type="radio" name="mode" id="show__examples__mode">
+            <input type="radio" name="mode" id="learn__mode">
+            <input type="radio" name="mode" id="use__mode">
+
+            <label for="create__examples__mode"></label>
+            <label for="show__examples__mode"></label>
+            <label for="learn__mode"></label>
+            <label for="use__mode"></label>
+        </nav>
+    </header>
+    <main id="content">
+        
+    </main>
+    <footer id="footer__site">
+        <cite>&copy; by Nikita Berezyuk, 2021</cite>
+    </footer>
+</body>
+</html>
